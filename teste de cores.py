@@ -24,7 +24,7 @@ print('\033[2;32;107m{} \033[m'.format(nome))
 
 """def main():
     root = Tk()   
-    root.geometry('1100x350+500+300')
+    root.geometry('300x100')
     root.configure(background = 'black')
     app = Application(root)
     root.mainloop()  """
