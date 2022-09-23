@@ -51,8 +51,9 @@ def login():
 
     # username
     username_label = ttk.Label(root, text="Seu apelido:")
-    username_label.grid(column=0, row=0, sticky=tk.W, padx=5, pady=5)
-
+    username_label.grid(column=0, row=0, sticky=tk.W, padx=5, pady=5) 
+    #.grid define a posição de alguma coisa que vc quer inserir(botao, texto e etc)
+    #label pedaço de texto incrementado na janela
     username_entry = ttk.Entry(root)
     username_entry.grid(column=1, row=0, sticky=tk.E, padx=5, pady=5)
 
