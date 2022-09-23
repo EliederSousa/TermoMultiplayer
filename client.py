@@ -40,7 +40,8 @@ def login():
     root.geometry("300x100")
     root.title('CONECTE AO TERMO')
     root.resizable(0, 0)
-
+    #root.configure(background = 'black')
+    
     # configure the grid
     root.columnconfigure(0, weight=1)
     root.columnconfigure(1, weight=3)
