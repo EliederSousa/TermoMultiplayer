@@ -4,4 +4,4 @@ Implementação do jogo _termo_, em Python. Utilizando sockets, faremos com que 
   
     
       
--Ler linha 43 Client.py!!! 
+-Ler linha 43 Client.py possível solução!!! 
