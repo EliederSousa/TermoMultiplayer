@@ -4,7 +4,7 @@ nome = input('\033[1;37;44mDigite seu nome: \033[m')
 print('\033[2;32;107m{} \033[m'.format(nome))
 
 
-#código para cor em python '\033[Estilo da letra; cor da letra; cor do background \033[m'
+#código para cor em python '\033[Estilo da letra; cor da letra; cor do backgroundm \033[m'
 """text                    background
  
 30      black         preto       40
