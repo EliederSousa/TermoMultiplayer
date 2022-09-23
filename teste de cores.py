@@ -21,10 +21,16 @@ print('\033[2;32;107m{} \033[m'.format(nome))
 
 #para adicionar mais cores haverá de usar uma biblioteca especifica
 
-
+#Colocando uma cor específica para o fundo
 """def main():
     root = Tk()   
     root.geometry('300x100')
     root.configure(background = 'black')
     app = Application(root)
     root.mainloop()  """
+
+#Colocando uma foto de fundo(como por exemplo uma foto de uma cor metalica...)
+"""from tkinter import *
+root = Tk() 
+root.geometry("400x400") 
+bg = PhotoImage(file = "Your_image.png") """
