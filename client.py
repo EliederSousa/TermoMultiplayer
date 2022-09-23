@@ -77,7 +77,6 @@ def login():
 def createrow( placeholder, n ):
     # This will create a LabelFrame
     frame = ttk.Frame(placeholder, height=200, padding=10)
-    frame.config(background='#1C1E1F')
     frame.pack()
     
     # Caixas de texto
@@ -90,7 +89,7 @@ def gameloop():
     # Creating tkinter window with fixed geometry
     root = tk.Tk()
     root.geometry('400x500')
-    root['bg'] = '#1C1E1F'
+    # root['bg'] = '#1C1E1F'
     
     createrow(root, 1)
     createrow(root, 2)
@@ -117,7 +116,6 @@ def wait():
 
 #login()
 gameloop()
-
 
 """
 TCP_IP = '192.168.1.104' # endereço IP do servidor 
