@@ -34,3 +34,6 @@ print('\033[2;32;107m{} \033[m'.format(nome))
 root = Tk() 
 root.geometry("400x400") 
 bg = PhotoImage(file = "Your_image.png") """
+
+#Link para mudança de cor do botão
+#https://www.delftstack.com/pt/howto/python-tkinter/how-to-change-tkinter-button-color/#:~:text=O%20widget%20Tkinter%20Button%20tem,%C3%A0s%20teclas%20bg%20e%20fg%20.
