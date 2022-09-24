@@ -25,7 +25,15 @@ fsm.changeState("login")
 running = True
 state = fsm.getState()
 
-def btn_login_callback():
+def btn_login_callback( nome, ip ):
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((ip, 30000))
+    sock.send(nome.encode('UTF-8'))
+    data, addr = sock.recvfrom(2048)
+    sock.close()
+    print ("received data:", data, addr)
+
     connected = True
     if connected:
         messagebox.showinfo("Login", "Conectado")
@@ -40,7 +48,7 @@ def login():
     root.geometry("300x100")
     root.title('CONECTE AO TERMO')
     root.resizable(0, 0)
-    #root.configure(background = 'black') Caso essa linha dê problema há uma possivel solução abaixo
+    # root.configure(background = 'black') #Caso essa linha dê problema há uma possivel solução abaixo
     #https://stackoverflow.com/questions/10887762/python-tkinter-root-window-background-configuration
     
     
@@ -58,14 +66,14 @@ def login():
     username_entry.grid(column=1, row=0, sticky=tk.E, padx=5, pady=5)
 
     # password
-    password_label = ttk.Label(root, text="IP do servidor:")
-    password_label.grid(column=0, row=1, sticky=tk.W, padx=5, pady=5)
+    IP_label = ttk.Label(root, text="IP do servidor:")
+    IP_label.grid(column=0, row=1, sticky=tk.W, padx=5, pady=5)
 
-    password_entry = ttk.Entry(root)
-    password_entry.grid(column=1, row=1, sticky=tk.E, padx=5, pady=5)
+    IP_entry = ttk.Entry(root)
+    IP_entry.grid(column=1, row=1, sticky=tk.E, padx=5, pady=5)
 
     # login button
-    login_button = ttk.Button(root, text="CONECTAR!", command=btn_login_callback)
+    login_button = ttk.Button(root, text="CONECTAR!", command= lambda: btn_login_callback(username_entry.get(), IP_entry.get()))
     login_button.grid(column=1, row=3, sticky=tk.E, padx=5, pady=5)
 
     while True:
@@ -94,7 +102,9 @@ def gameloop():
     # Creating tkinter window with fixed geometry
     root = tk.Tk()
     root.geometry('400x500')
-    # root['bg'] = '#1C1E1F'
+    #root.configure(bg = 'black')
+    root.config(background = 'black')
+    
     
     createrow(root, 1)
     createrow(root, 2)
@@ -115,33 +125,8 @@ def gameloop():
 
 
 def wait():
+    # Um layout que terá a seguinte frase: "Fulano acertou. Proxima rodada em x segundos "
     print("waiting")
 
 
-
-#login()
-gameloop()
-
-"""
-TCP_IP = '192.168.1.104' # endereço IP do servidor 
-TCP_PORTA = 30000      # porta disponibilizada pelo servidor
-TAMANHO_BUFFER = 2048
-
-MENSAGEM  = "Teste"
-
-# Criação de socket TCP do cliente
-cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# Conecta ao servidor em IP e porta especifica 
-cliente.connect((TCP_IP, TCP_PORTA))
-
-# envia mensagem para servidor 
-cliente.send(MENSAGEM.encode('UTF-8'))
-
-# recebe dados do servidor 
-data, addr = cliente.recvfrom(2048)
-
-# fecha conexão com servidor
-cliente.close()
-
-print ("received data:", data)
-"""
+login()
