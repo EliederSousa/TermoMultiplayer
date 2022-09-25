@@ -1,9 +1,12 @@
 from cProfile import run
+from ctypes import addressof
+from distutils.log import info
 from msilib.schema import Error
-import socket
+import socket, pickle
 import tkinter as tk
-from tkinter import ttk
+from tkinter import StringVar, ttk
 from tkinter import messagebox
+from xmlrpc.client import Server
 import fsm
 
 
@@ -13,37 +16,94 @@ import fsm
 > login ==> gameloop    ||
     ||         ||       ||
     ||         \/       ||
-    \\====> waiting ====//
+    \\====> waiting ====// """
 
-"""
 fsm = fsm.FiniteStateMachine()
 fsm.createState("login", ["gameloop", "wait"])
 fsm.createState("gameloop", ["wait"])
 fsm.createState("wait", ["gameloop"])
 fsm.changeState("login")
-
-running = True
 state = fsm.getState()
 
-def btn_login_callback( nome, ip ):
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((ip, 30000))
-    sock.send(nome.encode('UTF-8'))
+class ClienteInfo:
+    nome = ""
+    addr = ""
+    info = ""
+    text = ""
+
+
+class ServerInfo:
+    info = ""
+    code = ""
+    seg  = ""
+
+
+client = ClienteInfo()
+sock = ""
+
+# Checa se a entrada é valida. 
+def entry_checkLetter( ev, widget, linha ):
+    widget.delete(1, 'end')
+    text = widget.get()
+    if text.isalpha():
+        text = text.upper()
+        widget.delete(0, 'end')
+        widget.insert(0, text)
+        if len(cells[linha][0].get()) > 0 and len(cells[linha][1].get()) > 0 and len(cells[linha][2].get()) > 0 and len(cells[linha][3].get()) > 0 and len(cells[linha][4].get()) > 0:
+            palavra = cells[linha][0].get() + cells[linha][1].get()  + cells[linha][2].get()  + cells[linha][3].get()  + cells[linha][4].get() 
+            enviarPalavra(palavra)
+    else:
+        widget.delete(0, 'end')
+
+
+def enviarPalavra( palavra ):
+    client.text = palavra
+    client.info = "gameloop"
+    sock.send(pickle.dumps(client))
+    
+    # Recebe os dados de confirmação de login
     data, addr = sock.recvfrom(2048)
-    sock.close()
-    print ("received data:", data, addr)
+    data = pickle.loads(data)
 
-    connected = True
-    if connected:
+def entry_checkName( ev, widget ):
+    widget.delete(10, 'end')
+    text = widget.get()
+    if not text.isalpha() and (len(text) > 0):
+        widget.delete(0, 'end')
+        messagebox.showerror("Erro", "Use somente letras maíusculas ou minúsculas!")
+
+
+def btn_login_callback( nome, ip ):
+    # Cria a conexão com o servidor
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1,10000,3000))
+    sock.connect((ip, 30000))
+
+    # Prepara os dados de login e envia
+    client.nome = nome
+    client.addr = ip
+    client.text = ""
+    client.info = "login"
+    sock.send(pickle.dumps(client))
+
+    # Recebe os dados de confirmação de login
+    data, addr = sock.recvfrom(2048)
+    data = pickle.loads(data)
+
+    # Checa se o servidor aceitou a conexão
+    if data.code == 200:
         messagebox.showinfo("Login", "Conectado")
         fsm.changeState("gameloop")
-    else:
-        messagebox.showerror("showerror", "Error")
+    elif data.code == 404:
+        messagebox.showerror("Erro!", "Você já está conectado. ;)")
+        sock.close()
+    elif data.code == 502:
+        messagebox.showerror("Erro!", "Servidor cheio, desculpe :(")
+        sock.close()
+
 
 def login():
-
-    # root window
     root = tk.Tk()
     root.geometry("300x100")
     root.title('CONECTE AO TERMO')
@@ -51,29 +111,28 @@ def login():
     # root.configure(background = 'black') #Caso essa linha dê problema há uma possivel solução abaixo
     #https://stackoverflow.com/questions/10887762/python-tkinter-root-window-background-configuration
     
-    
-    
-    # configure the grid
+    # GRID
     root.columnconfigure(0, weight=1)
     root.columnconfigure(1, weight=3)
 
-    # username
-    username_label = ttk.Label(root, text="Seu apelido:")
+    # Apelido
+    username_label = ttk.Label(root, text="Seu apelido (até 10 letras):")
     username_label.grid(column=0, row=0, sticky=tk.W, padx=5, pady=5) 
-    #.grid define a posição de alguma coisa que vc quer inserir(botao, texto e etc)
-    #label pedaço de texto incrementado na janela
     username_entry = ttk.Entry(root)
     username_entry.grid(column=1, row=0, sticky=tk.E, padx=5, pady=5)
+    username_entry.bind("<KeyRelease>", lambda event: entry_checkName(event, username_entry))
+    username_entry.insert(0, "Elieder")
 
-    # password
+    # IP
     IP_label = ttk.Label(root, text="IP do servidor:")
     IP_label.grid(column=0, row=1, sticky=tk.W, padx=5, pady=5)
-
     IP_entry = ttk.Entry(root)
+    IP_entry.insert(0, "192.168.1.105")
     IP_entry.grid(column=1, row=1, sticky=tk.E, padx=5, pady=5)
 
-    # login button
-    login_button = ttk.Button(root, text="CONECTAR!", command= lambda: btn_login_callback(username_entry.get(), IP_entry.get()))
+    # Botão
+    login_button = ttk.Button(root, text="CONECTAR!", \
+        command= lambda: btn_login_callback(username_entry.get(), IP_entry.get()))
     login_button.grid(column=1, row=3, sticky=tk.E, padx=5, pady=5)
 
     while True:
@@ -84,34 +143,77 @@ def login():
             break
     
     root.destroy()
-    gameloop()    
+    gameloop()
+
+
+# Guarda handlers para cada caixa de texto
+cells = []
 
 
 def createrow( placeholder, n ):
-    # This will create a LabelFrame
+    # Cria um frame (container)
     frame = ttk.Frame(placeholder, height=200, padding=10)
     frame.pack()
-    
+
+    temp = []
     # Caixas de texto
+    # Não funciona dentro de um loop. Dá conflito nos nomes dos widgets.
+    btn1 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn1.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn1, n))
+    btn1.pack(side='left')
+    temp.append(btn1)
+
+    btn2 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn2.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn2, n))
+    btn2.pack(side='left')
+    temp.append(btn2)
+
+    btn3 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn3.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn3, n))
+    btn3.pack(side='left')
+    temp.append(btn3)
+
+    btn4 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn4.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn4, n))
+    btn4.pack(side='left')
+    temp.append(btn4)
+
+    btn5 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn5.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn5, n))
+    btn5.pack(side='left')
+    temp.append(btn5)
+
+    cells.append(temp)
+
+
+def btn_teste( ev, text1, text2, text3, text4, text5 ):
+    # Prepara os dados de login e envia
+    t = text1.get() + text2.get() + text3.get() + text4.get() + text5.get()
+    print(t)
+
+def disableRow( n ):
     for w in range(5):
-        btn1 = ttk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
-        btn1.pack(side='left')
+        cells[n][w].config(state='disabled')
+
+
+def colorRow( n ):
+    pass
+
 
 def gameloop():
-
-    # Creating tkinter window with fixed geometry
+    global cells
     root = tk.Tk()
     root.geometry('400x500')
-    #root.configure(bg = 'black')
-    root.config(background = 'black')
+    #root.config(background = 'black')
     
-    
+    createrow(root, 0)
     createrow(root, 1)
     createrow(root, 2)
     createrow(root, 3)
-    createrow(root, 4)
-    createrow(root, 5)
-    createrow(root, 6)
+
+    cells[0][0].config(bg='red')
+
+
 
     while True:
         # não fazer tk.mainloop() pois ele bloqueia a execução.
