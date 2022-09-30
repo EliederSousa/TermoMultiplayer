@@ -1,12 +1,9 @@
-from cProfile import run
-from ctypes import addressof
-from distutils.log import info
-from msilib.schema import Error
+from concurrent.futures import thread
 import socket, pickle
 import tkinter as tk
-from tkinter import StringVar, ttk
+from tkinter import ttk
 from tkinter import messagebox
-from xmlrpc.client import Server
+import threading
 import fsm
 
 
@@ -17,6 +14,7 @@ import fsm
     ||         ||       ||
     ||         \/       ||
     \\====> waiting ====// """
+
 
 fsm = fsm.FiniteStateMachine()
 fsm.createState("login", ["gameloop", "wait"])
@@ -41,6 +39,7 @@ class ServerInfo:
 
 client = ClienteInfo()
 sock = ""
+clientSocket = ""
 
 # Checa se a entrada é valida. 
 def entry_checkLetter( ev, widget, linha ):
@@ -56,15 +55,13 @@ def entry_checkLetter( ev, widget, linha ):
     else:
         widget.delete(0, 'end')
 
-
 def enviarPalavra( palavra ):
     client.text = palavra
     client.info = "gameloop"
     sock.send(pickle.dumps(client))
     
-    # Recebe os dados de confirmação de login
-    data, addr = sock.recvfrom(2048)
-    data = pickle.loads(data)
+    #data, addr = sock.recvfrom(2048)
+    #data = pickle.loads(data)
 
 def entry_checkName( ev, widget ):
     widget.delete(10, 'end')
@@ -73,8 +70,25 @@ def entry_checkName( ev, widget ):
         widget.delete(0, 'end')
         messagebox.showerror("Erro", "Use somente letras maíusculas ou minúsculas!")
 
+# Função que cia uma thread e possibilita o recebiment ode mensagens do servidor.
+# Com ela, o servidor sempre tem uma confirmação de que o cliente está logado e não dá erro de desconexão.
+def clientThread():
+    global guesses, waitingForNewRow
+    print("Thread criada para o cliente {}".format(client.addr))
+    while True:
+        data = sock.recv(2048)
+        data = pickle.loads(data)
+        print("Teste: ", data.code, data.info )
+        if data.code == 900:
+            guesses = data.info
+            waitingForNewRow = True
+        #print(data.info)
+        #client.info = "ping"
+        #sock.send(pickle.dumps(client))
+        
 
 def btn_login_callback( nome, ip ):
+    global sock, client
     # Cria a conexão com o servidor
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1,10000,3000))
@@ -95,6 +109,7 @@ def btn_login_callback( nome, ip ):
     if data.code == 200:
         messagebox.showinfo("Login", "Conectado")
         fsm.changeState("gameloop")
+        (threading.Thread(target=clientThread)).start()
     elif data.code == 404:
         messagebox.showerror("Erro!", "Você já está conectado. ;)")
         sock.close()
@@ -102,6 +117,59 @@ def btn_login_callback( nome, ip ):
         messagebox.showerror("Erro!", "Servidor cheio, desculpe :(")
         sock.close()
 
+
+# Guarda handlers para cada caixa de texto
+cells = []
+def createrow( placeholder, n ):
+    # Cria um frame (container)
+    frame = ttk.Frame(placeholder, height=200, padding=10)
+    frame.pack()
+
+    temp = []
+    # Caixas de texto
+    # Não funciona dentro de um loop. Dá conflito nos nomes dos widgets.
+    btn1 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn1.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn1, n))
+    btn1.pack(side='left')
+    temp.append(btn1)
+
+    btn2 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn2.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn2, n))
+    btn2.pack(side='left')
+    temp.append(btn2)
+
+    btn3 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn3.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn3, n))
+    btn3.pack(side='left')
+    temp.append(btn3)
+
+    btn4 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn4.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn4, n))
+    btn4.pack(side='left')
+    temp.append(btn4)
+
+    btn5 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
+    btn5.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn5, n))
+    btn5.pack(side='left')
+    temp.append(btn5)
+
+    cells.append(temp)
+
+def disableRow( n ):
+    for w in range(5):
+        cells[n][w].config(state='disabled')
+
+def colorRow( n, guesses ):
+    global cells
+    for w in range( 5 ):
+        if guesses[w] == "c":
+            cells[n][w].config(bg='green')
+        elif guesses[w] == "q":
+            cells[n][w].config(bg='yellow')
+
+
+###############################################################
+#### FUNÇÕES DOS ESTADOS DO JOGO ##############################
 
 def login():
     root = tk.Tk()
@@ -145,87 +213,36 @@ def login():
     root.destroy()
     gameloop()
 
-
-# Guarda handlers para cada caixa de texto
-cells = []
-
-
-def createrow( placeholder, n ):
-    # Cria um frame (container)
-    frame = ttk.Frame(placeholder, height=200, padding=10)
-    frame.pack()
-
-    temp = []
-    # Caixas de texto
-    # Não funciona dentro de um loop. Dá conflito nos nomes dos widgets.
-    btn1 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
-    btn1.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn1, n))
-    btn1.pack(side='left')
-    temp.append(btn1)
-
-    btn2 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
-    btn2.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn2, n))
-    btn2.pack(side='left')
-    temp.append(btn2)
-
-    btn3 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
-    btn3.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn3, n))
-    btn3.pack(side='left')
-    temp.append(btn3)
-
-    btn4 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
-    btn4.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn4, n))
-    btn4.pack(side='left')
-    temp.append(btn4)
-
-    btn5 = tk.Entry(frame, width=2, justify = 'center', font=('consolas', 30, 'bold') )
-    btn5.bind("<KeyRelease>", lambda event: entry_checkLetter(event, btn5, n))
-    btn5.pack(side='left')
-    temp.append(btn5)
-
-    cells.append(temp)
-
-
-def btn_teste( ev, text1, text2, text3, text4, text5 ):
-    # Prepara os dados de login e envia
-    t = text1.get() + text2.get() + text3.get() + text4.get() + text5.get()
-    print(t)
-
-def disableRow( n ):
-    for w in range(5):
-        cells[n][w].config(state='disabled')
-
-
-def colorRow( n ):
-    pass
-
+waitingForNewRow = False
+tries = 0
+guesses = ""
 
 def gameloop():
-    global cells
+    global cells, waitingForNewRow, tries, guesses
     root = tk.Tk()
     root.geometry('400x500')
-    #root.config(background = 'black')
     
-    createrow(root, 0)
-    createrow(root, 1)
-    createrow(root, 2)
-    createrow(root, 3)
-
-    cells[0][0].config(bg='red')
-
-
+    createrow(root, tries)
 
     while True:
         # não fazer tk.mainloop() pois ele bloqueia a execução.
         # use um loop infinito, e chame root.update()
+        if waitingForNewRow:
+            waitingForNewRow = False
+            tries += 1
+            if( tries < 6 ):
+                colorRow( tries-1, guesses)
+                createrow(root, tries)
+            else:
+                fsm.changeState("wait")
+
         root.update()
         if fsm.getState() == "wait":
             break
     
     root.destroy()
     wait()
-
-
+    
 def wait():
     # Um layout que terá a seguinte frase: "Fulano acertou. Proxima rodada em x segundos "
     print("waiting")
