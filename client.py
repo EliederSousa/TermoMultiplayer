@@ -172,8 +172,8 @@ def colorRow( n, guesses ):
     global cells
     for w in range( 5 ):
         if guesses[w] == "c":
-            cells[n][w].config(bg='green')
-            cells[n][w].config(disabledbackground="green")
+            cells[n][w].config(bg='#90ee90')
+            cells[n][w].config(disabledbackground="#90ee90")
         elif guesses[w] == "q":
             cells[n][w].config(bg='yellow')
             cells[n][w].config(disabledbackground="yellow")
