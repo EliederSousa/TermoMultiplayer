@@ -3,7 +3,7 @@ import fsm
 
 MAX_CLIENTS     = 2
 DEFAULT_PORT    = 30000
-DEBUGMODE       = False
+DEBUGMODE       = True
 
 palavrasValidas = ["termo","suíte","ávido","festa","bebia","honra","ouvir","pesco","fungo","pagam","ginga", \
     "pinta","poder","útero","pilha","sarar","fruta","piano","notar","musgo","tensa","melão","feliz","miojo",\
@@ -224,9 +224,9 @@ def gameLogicThread():
         serverTicks += 1
         if serverTicks > 2**31:
             serverTicks = 0
+        #if (serverTicks % 20000000 == 0):
+        #    print(logic.state.getState())
         if logic.state.getState() == "esperarclientes":
-            if (serverTicks % 10000000 == 0):
-                print("Esperando clientes.")
             if logic.numClientes == logic.numClientesParaIniciar:
                 logic.state.changeState("gameloop")
                 logic.word = palavrasValidas[random.randrange(0, len(palavrasValidas))].upper()
@@ -238,14 +238,17 @@ def gameLogicThread():
                 svinfo.code = 200
                 svinfo.info = "Esperando por mais {} jogadores.".format(logic.numClientesParaIniciar - logic.numClientes)
                 broadcast(svinfo)
-        elif logic.state == "gameloop":
+        elif logic.state.getState() == "gameloop":
             pass
-        elif logic.state == "wait":
+        elif logic.state.getState() == "wait":
             time.sleep(1)
-            if logic.seg > 0:    
+            if logic.seg > 0:
+                if logic.seg == 4:
+                    print("{} ganhou.".format(logic.winner))
+                print("Nova rodada em {}s".format(logic.seg))
                 logic.seg -= 1
-                svinfo.info = "{} ganhou.\nNova rodada em {}s".format(logic.winner, logic.seg)
-                svinfo.code = 404
+                svinfo.info = "{} ganhou.\nNova rodada em {}s\n".format(logic.winner, logic.seg)
+                svinfo.code = 910
                 broadcast( svinfo )
             else:
                 logic.state.changeState("gameloop")
@@ -301,7 +304,6 @@ def clientThread( con, ipAddress, port):
                     print("{} enviou {}".format(data.nome, data.text))
                     teste, erros = checarPalavra( data.text )
                     if not teste:
-                        print("not teste")
                         temp.code = 900
                         temp.info = erros #c = letra certa, q = quase certa, e = letra errada
                         con.send(pickle.dumps(temp))
