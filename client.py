@@ -40,6 +40,7 @@ class ServerInfo:
 client = ClienteInfo()
 sock = ""
 clientSocket = ""
+waitingInfo = ""
 
 # Checa se a entrada é valida. 
 def entry_checkLetter( ev, widget, linha ):
@@ -73,15 +74,23 @@ def entry_checkName( ev, widget ):
 # Função que cia uma thread e possibilita o recebiment ode mensagens do servidor.
 # Com ela, o servidor sempre tem uma confirmação de que o cliente está logado e não dá erro de desconexão.
 def clientThread():
-    global guesses, waitingForNewRow
+    global guesses, waitingForNewRow, fsm, waitingInfo
     print("Thread criada para o cliente {}".format(client.addr))
     while True:
         data = sock.recv(2048)
         data = pickle.loads(data)
-        print("Teste: ", data.code, data.info )
+        
+        if fsm.getState() == "wait":
+            if data.info == "gameloop":
+                fsm.changeState("gameloop")
+            else:
+                waitingInfo = data.info
+            
         if data.code == 900:
             guesses = data.info
             waitingForNewRow = True
+        elif data.code == 910 and not (fsm.getState() == "wait") :
+            fsm.changeState("wait")
         #print(data.info)
         #client.info = "ping"
         #sock.send(pickle.dumps(client))
@@ -164,8 +173,10 @@ def colorRow( n, guesses ):
     for w in range( 5 ):
         if guesses[w] == "c":
             cells[n][w].config(bg='green')
+            cells[n][w].config(disabledbackground="green")
         elif guesses[w] == "q":
             cells[n][w].config(bg='yellow')
+            cells[n][w].config(disabledbackground="yellow")
 
 
 ###############################################################
@@ -221,17 +232,18 @@ def gameloop():
     global cells, waitingForNewRow, tries, guesses
     root = tk.Tk()
     root.geometry('400x500')
+    root.title(client.nome)
     
+    cells = []
     createrow(root, tries)
 
     while True:
-        # não fazer tk.mainloop() pois ele bloqueia a execução.
-        # use um loop infinito, e chame root.update()
         if waitingForNewRow:
             waitingForNewRow = False
             tries += 1
             if( tries < 6 ):
                 colorRow( tries-1, guesses)
+                disableRow( tries-1 )
                 createrow(root, tries)
             else:
                 fsm.changeState("wait")
@@ -243,9 +255,38 @@ def gameloop():
     root.destroy()
     wait()
     
+    
 def wait():
-    # Um layout que terá a seguinte frase: "Fulano acertou. Proxima rodada em x segundos "
-    print("waiting")
+    global waitingInfo
+    """
+    for m in cells:
+        for n in m:
+            n.unbind()"""
+    
+    root = tk.Tk()
+    root.geometry("300x300")
+    root.title('Aguarde a próxima rodada')
+    root.resizable(0, 0)
+    # root.configure(background = 'black') #Caso essa linha dê problema há uma possivel solução abaixo
+    #https://stackoverflow.com/questions/10887762/python-tkinter-root-window-background-configuration
+    
+    # GRID
+
+    # Apelido
+    info_label = ttk.Label(root)
+    info_label.pack()
+    
+    while True:
+        # não fazer tk.mainloop() pois ele bloqueia a execução.
+        # use um loop infinito, e chame root.update()
+        info_label.config(text=waitingInfo)
+        
+        root.update()
+        if fsm.getState() == "gameloop":
+            break
+    
+    root.destroy()
+    gameloop()
 
 
 login()
