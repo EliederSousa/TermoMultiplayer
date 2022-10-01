@@ -149,7 +149,7 @@ class GameLogic:
     global fsm
     state = fsm
     word = "TESTE"
-    seg = 0
+    seg = 80
     winner = ""
     clientes = {}
     numClientes = 0
@@ -209,11 +209,25 @@ print("Servidor ouvindo a porta {}.".format(DEFAULT_PORT))
 
 def broadcast( serverInfoObject ):
     global logic
+    removeQueue = []
     for w in logic.clientes:
         try:
             logic.clientes[w]["socket"].send(pickle.dumps(serverInfoObject))
         except:
-            print("Erro ao dar broadcast.")
+            removeQueue.append(w)
+            print("Removendo o cliente {}.".format(logic.clientes[w]["nome"]))
+    
+    for w in removeQueue:
+        del logic.clientes[w]
+
+
+def placar():
+    global logic
+    result = ""
+    for w in logic.clientes:
+        result += str(logic.clientes[w]["nome"]) + ": " + str(logic.clientes[w]["pontuacao"]) + "\n"  
+    return result
+
 
 
 def gameLogicThread():
@@ -224,8 +238,6 @@ def gameLogicThread():
         serverTicks += 1
         if serverTicks > 2**31:
             serverTicks = 0
-        #if (serverTicks % 20000000 == 0):
-        #    print(logic.state.getState())
         if logic.state.getState() == "esperarclientes":
             if logic.numClientes == logic.numClientesParaIniciar:
                 logic.state.changeState("gameloop")
@@ -239,22 +251,45 @@ def gameLogicThread():
                 svinfo.info = "Esperando por mais {} jogadores.".format(logic.numClientesParaIniciar - logic.numClientes)
                 broadcast(svinfo)
         elif logic.state.getState() == "gameloop":
-            pass
+            if logic.numClientes > 0:
+                if logic.seg > 0:
+                    if logic.seg % 10 == 0:
+                        print("Esta rodada terminará em {}s.".format(logic.seg))
+                    logic.seg -= 1
+                    svinfo.code = 700
+                    svinfo.info = "Esta rodada terminará em {}s.".format(logic.seg)
+                    broadcast( svinfo )
+                    time.sleep(1)
+                else:
+                    logic.winner = "ninguem"
+                    logic.seg = 9
+                    logic.state.changeState("wait")
+            else:
+                logic.seg = 80
         elif logic.state.getState() == "wait":
-            time.sleep(1)
-            if logic.seg > 0:
-                if logic.seg == 4:
-                    print("{} ganhou.".format(logic.winner))
+            if logic.seg > 0 and not logic.winner == "ninguem":
+                if logic.seg == 8:
+                    print("{} ganhou e tem {} pontos. A palavra certa era {}.".format(logic.clientes[logic.winner]["nome"], logic.clientes[logic.winner]["pontuacao"], logic.word))
                 print("Nova rodada em {}s".format(logic.seg))
                 logic.seg -= 1
-                svinfo.info = "{} ganhou.\nNova rodada em {}s\n".format(logic.winner, logic.seg)
+                svinfo.info = "{} ganhou.\nPONTUAÇÃO:\n{}\nA palavra certa era {}.\n\nNova rodada em {}s\n".format(logic.clientes[logic.winner]["nome"], placar(), logic.word, logic.seg)
                 svinfo.code = 910
                 broadcast( svinfo )
+                time.sleep(1)
+            elif logic.seg > 0 and logic.winner == "ninguem":
+                if logic.seg == 8:
+                    print("Ninguém ganhou. A palavra certa era {}.".format(logic.word))
+                print("Nova rodada em {}s".format(logic.seg))
+                logic.seg -= 1
+                svinfo.info = "Ninguém ganhou.\nA palavra certa era {}.\n================\nPLACAR:\n\n{}\n================\nNova rodada em {}s\n".format(logic.word, placar(), logic.seg)
+                svinfo.code = 910
+                broadcast( svinfo )
+                time.sleep(1)
             else:
                 logic.state.changeState("gameloop")
                 logic.word = palavrasValidas[random.randrange(0, len(palavrasValidas))].upper()
                 print("\nIniciando uma nova rodada, palavra alvo: {}".format(logic.word))
-                logic.seg = 5
+                logic.seg = 80
                 svinfo.info = "gameloop"
                 svinfo.code = 200
                 broadcast( svinfo )
@@ -282,7 +317,7 @@ def checarPalavra( palavra ):
         return False, resultado
 
 
-def clientThread( con, ipAddress, port):
+def clientThread( con, IPPORT):
     global logic
     svInfo = ServerInfo()
 
@@ -297,9 +332,9 @@ def clientThread( con, ipAddress, port):
                     temp.info = "Conectado!"
                     con.send(pickle.dumps(temp))
                     print("\n================ NOVO CLIENTE ================")
-                    print("Usuário: {}, {} : {}".format(data.nome, ipAddress, port))
-                    print("Clientes online:", logic.numClientes)
-                    logic.clientes[ipAddress]["nome"] = data.nome
+                    print("Usuário: {}, {}".format(data.nome, IPPORT))
+                    print("Clientes online: {}\n\n".format(logic.numClientes))
+                    logic.clientes[IPPORT]["nome"] = data.nome
                 elif data.info == "gameloop":
                     print("{} enviou {}".format(data.nome, data.text))
                     teste, erros = checarPalavra( data.text )
@@ -308,13 +343,12 @@ def clientThread( con, ipAddress, port):
                         temp.info = erros #c = letra certa, q = quase certa, e = letra errada
                         con.send(pickle.dumps(temp))
                     else:
-                        logic.winner = data.nome
-                        logic.clientes[ipAddress]["pontuacao"] += 1
-                        logic.seg = 5
+                        logic.winner = IPPORT
+                        logic.clientes[IPPORT]["pontuacao"] += 1
+                        logic.seg = 9
                         logic.state.changeState("wait")
-
             else:
-                print("Cliente no IP {} não enviou dados".format(con))
+                print("Erro no recebimento de dados da conexão {}".format(con))
                 break
 
         except socket.error as e:
@@ -330,8 +364,10 @@ threading.Thread(target=gameLogicThread).start()
 running = True
 while running:
     sock, addr = serv.accept()
-
-    if addr[0] in logic.clientes and not DEBUGMODE:
+    tempNome = str(addr[0]) + ":" + str(addr[1])
+    # TODO: tempNome é ip:porta, porém para bloquear ips que se conectam 2 vezes,
+    # precisaria guardar o ip em logic.clientes de forma separada e checar apenas ele
+    if tempNome in logic.clientes and not DEBUGMODE:
         print("IP {} chutado por tentar se conectar novamente.".format(addr[0]))
         temp = ServerInfo()
         temp.code = 404
@@ -341,8 +377,8 @@ while running:
         temp.code = 502
         sock.send(pickle.dumps(temp))
     else:
-        logic.clientes[addr[0]] = {}
-        logic.clientes[addr[0]]["socket"] = sock
-        logic.clientes[addr[0]]["pontuacao"] = 0
+        logic.clientes[tempNome] = {}
+        logic.clientes[tempNome]["socket"] = sock
+        logic.clientes[tempNome]["pontuacao"] = 0
         logic.numClientes += 1
-        thread = threading.Thread(target=clientThread, args=(sock, addr[0], addr[1])).start()
+        thread = threading.Thread(target=clientThread, args=(sock, tempNome)).start()
