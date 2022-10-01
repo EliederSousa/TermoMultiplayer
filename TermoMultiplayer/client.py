@@ -44,17 +44,18 @@ waitingInfo = ""
 
 # Checa se a entrada é valida. 
 def entry_checkLetter( ev, widget, linha ):
-    widget.delete(1, 'end')
-    text = widget.get()
-    if text.isalpha():
-        text = text.upper()
-        widget.delete(0, 'end')
-        widget.insert(0, text)
-        if len(cells[linha][0].get()) > 0 and len(cells[linha][1].get()) > 0 and len(cells[linha][2].get()) > 0 and len(cells[linha][3].get()) > 0 and len(cells[linha][4].get()) > 0:
-            palavra = cells[linha][0].get() + cells[linha][1].get()  + cells[linha][2].get()  + cells[linha][3].get()  + cells[linha][4].get() 
-            enviarPalavra(palavra)
-    else:
-        widget.delete(0, 'end')
+    if ev.keysym.isalpha():
+        widget.delete(1, 'end')
+        text = widget.get()
+        if text.isalpha():
+            text = text.upper()
+            widget.delete(0, 'end')
+            widget.insert(0, text)
+            if len(cells[linha][0].get()) > 0 and len(cells[linha][1].get()) > 0 and len(cells[linha][2].get()) > 0 and len(cells[linha][3].get()) > 0 and len(cells[linha][4].get()) > 0:
+                palavra = cells[linha][0].get() + cells[linha][1].get()  + cells[linha][2].get()  + cells[linha][3].get()  + cells[linha][4].get() 
+                enviarPalavra(palavra)
+        else:
+            widget.delete(0, 'end')
 
 def enviarPalavra( palavra ):
     client.text = palavra
@@ -229,7 +230,10 @@ tries = 0
 guesses = ""
 
 def gameloop():
-    global cells, waitingForNewRow, tries, guesses
+    global cells, waitingForNewRow, tries, guesses, waitingInfo
+
+    tries = 0
+    
     root = tk.Tk()
     root.geometry('400x500')
     root.title(client.nome)
@@ -246,6 +250,7 @@ def gameloop():
                 disableRow( tries-1 )
                 createrow(root, tries)
             else:
+                waitingInfo = "Você perdeu, espere a próxima rodada começar."
                 fsm.changeState("wait")
 
         root.update()
